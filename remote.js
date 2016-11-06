@@ -15,49 +15,72 @@ var Remote = {
         return (' ' + element.className + ' ').indexOf(' ' + name + ' ') > -1;
     },
 
-    loadEditButtons: function() {
+    loadToggleButton: function(element, toggleCallback) {
+        var self = this;
+
+        element.addEventListener("click", function (event) {
+            if (self.hasClass(event.currentTarget, "toggled-off"))
+            {
+                event.currentTarget.className = event.currentTarget.className.replace("toggled-off", "toggled-on");
+                if (toggleCallback) {
+                    toggleCallback(true, event);
+                }
+            } else {
+                event.currentTarget.className = event.currentTarget.className.replace("toggled-on", "toggled-off");
+                if (toggleCallback) {
+                    toggleCallback(false, event);
+                }
+            }
+        }, false);
+    },
+
+    loadModuleButtons: function() {
         var self = this;
 
         var buttons = document.getElementsByClassName("edit-button");
         for (var i = 0; i < buttons.length; i++) {
-            buttons[i].addEventListener("click", function (event) {
-                if (self.hasClass(event.currentTarget, 'hidden-on-mirror'))
-                {
-                    self.getWithStatus("action=SHOW&module=" + event.currentTarget.id);
-                    event.currentTarget.className = event.currentTarget.className.replace("hidden-on-mirror", 'shown-on-mirror');
+            self.loadToggleButton(buttons[i], function (toggledOn, event) {
+                if (toggledOn) {
+                    self.showModule(event.currentTarget.id);
                 } else {
-                    self.getWithStatus("action=HIDE&module=" + event.currentTarget.id);
-                    event.currentTarget.className = event.currentTarget.className.replace("shown-on-mirror", 'hidden-on-mirror');
+                    self.hideModule(event.currentTarget.id);
                 }
-            }, false);
+            });
         }
     },
 
-    loadSliders: function() {
+    loadBrightnessSlider: function() {
         var self = this;
 
         var element = document.getElementById("brightness-slider");
 
         element.addEventListener("change", function(event) {
-            Remote.getWithStatus("action=BRIGHTNESS&value=" + element.value);
+            self.getWithStatus("action=BRIGHTNESS&value=" + element.value);
         }, false);
     },
 
+    loadUpdateButtons: function() {
+        var self = this;
+
+        var buttons = document.getElementsByClassName("update-button");
+        for (var i = 0; i < buttons.length; i++) {
+            buttons[i].addEventListener("click", function (event) {
+                self.getWithStatus("action=UPDATE&module=" + event.currentTarget.id);
+            }, false);
+        }
+    },
+
     showMenu: function(newMenu) {
-        var allMenus = document.getElementsByClassName("menu-button");
+        var allMenus = document.getElementsByClassName("menu-element");
 
         for (var i = 0; i < allMenus.length; i++) {
-            var button = allMenus[i];
-
-            button.style.display = 'none';
+            allMenus[i].style.display = 'none';
         }
 
         var currentMenu = document.getElementsByClassName(newMenu);
 
         for (var i = 0; i < currentMenu.length; i++) {
-            var button = currentMenu[i];
-
-            button.style.display = 'block';
+            currentMenu[i].style.display = 'block';
         }
 
         this.setStatus('none');
@@ -67,15 +90,12 @@ var Remote = {
         var allMenus = document.getElementsByClassName("status-indicator");
 
         for (var i = 0; i < allMenus.length; i++) {
-            var button = allMenus[i];
-
-            button.style.display = 'none';
+            allMenus[i].style.display = 'none';
         }
 
         var currentInfo = document.getElementById(status);
 
-        if (currentInfo)
-        {
+        if (currentInfo) {
             currentInfo.style.display = 'block';
         }
     },
@@ -91,11 +111,23 @@ var Remote = {
                 var result = JSON.parse(response);
                 if (result.status === "success") {
                     self.setStatus('success');
+					//only for success because error gives false errors
+					if (result.info){
+						alert(result.info);
+					}
                 } else {
                     self.setStatus('error');
                 }
             }
         });
+    },
+
+    showModule: function(id) {
+        this.getWithStatus("action=SHOW&module=" + id);
+    },
+
+    hideModule: function(id) {
+        this.getWithStatus("action=HIDE&module=" + id);
     },
 
     get: function(params, callback) {
@@ -113,7 +145,7 @@ var Remote = {
                     callback(http.responseText);
                 }
             }
-        }
+        };
         http.send(null);
     }
 };
@@ -129,8 +161,17 @@ var buttons = {
     'settings-button': function () {
         window.location.hash = 'settings-menu';
     },
+    'mirror-link-button': function () {
+        window.open("/", "_blank");
+    },
     'back-button': function () {
         window.location.hash = 'main-menu';
+    },
+    'update-button': function () {
+        window.location.hash = 'update-menu';
+    },
+    'alert-button': function () {
+        window.location.hash = 'alert-menu';
     },
 
     // settings menu buttons
@@ -138,6 +179,22 @@ var buttons = {
         var element = document.getElementById("brightness-slider");
         element.value = 100;
         Remote.getWithStatus("action=BRIGHTNESS&value=100");
+    },
+
+    // edit menu buttons
+    'show-all-button': function() {
+        var buttons = document.getElementsByClassName("edit-button");
+        for (var i = 0; i < buttons.length; i++) {
+            buttons[i].className = buttons[i].className.replace("toggled-off", "toggled-on");
+            Remote.showModule(buttons[i].id);
+        }
+    },
+    'hide-all-button': function() {
+        var buttons = document.getElementsByClassName("edit-button");
+        for (var i = 0; i < buttons.length; i++) {
+            buttons[i].className = buttons[i].className.replace("toggled-on", "toggled-off");
+            Remote.hideModule(buttons[i].id);
+        }
     },
 
     // power menu buttons
@@ -156,14 +213,39 @@ var buttons = {
     'monitor-off-button': function () {
         Remote.getWithStatus("action=MONITOROFF");
     },
+    'refresh-mm-button': function () {
+        Remote.getWithStatus("action=REFRESH");
+    },
+
+    // main menu
     'save-button': function () {
         Remote.getWithStatus("action=SAVE");
+    },
+
+   // update Menu
+    'update-mm-button': function () {
+        Remote.getWithStatus("action=UPDATE");
+    },
+
+    // alert menu
+    'send-alert-button': function () {
+        var kvpairs = [];
+        var form = document.getElementById('alert');
+        for ( var i = 0; i < form.elements.length; i++ ) {
+            var e = form.elements[i];
+            kvpairs.push(encodeURIComponent(e.name) + "=" + encodeURIComponent(e.value));
+        }
+        Remote.getWithStatus(kvpairs.join("&"));
+    },
+    'hide-alert-button': function () {
+        Remote.getWithStatus("action=HIDE_ALERT");
     }
 }
 
 Remote.loadButtons(buttons);
-Remote.loadEditButtons();
-Remote.loadSliders();
+Remote.loadModuleButtons();
+Remote.loadBrightnessSlider();
+Remote.loadUpdateButtons();
 
 Remote.setStatus('none');
 

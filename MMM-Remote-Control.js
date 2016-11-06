@@ -86,6 +86,18 @@ Module.register("MMM-Remote-Control", {
 			this.setBrightness(parseInt(payload));
 			this.sendCurrentData();
 		}
+		if (notification === "REFRESH" ){
+		  document.location.reload();
+		}
+		if (notification === "RESTART"){
+			setTimeout(function(){document.location.reload(); console.log('REFRESH');}, 60000);
+		}
+		if (notification === "SHOW_ALERT"){
+			this.sendNotification(notification, payload);
+		}
+		if (notification === "HIDE_ALERT"){
+			this.sendNotification(notification);
+		}
 		if (notification === "HIDE" || notification === "SHOW") {
 			var modules = MM.getModules();
 			for (var i = 0; i < modules.length; i++) {
@@ -110,7 +122,7 @@ Module.register("MMM-Remote-Control", {
 			".dimmed": parseInt("66", 16),
 			".normal": parseInt("99", 16),
 			".bright": parseInt("ff", 16)
-		}
+		};
 
 		for (var key in defaults) {
 			var value = defaults[key] / 100 * brightness;
@@ -206,6 +218,7 @@ Module.register("MMM-Remote-Control", {
 			currentModuleData[i]["name"] = modules[i].name;
 			currentModuleData[i]["identifier"] = modules[i].identifier;
 			currentModuleData[i]["position"] = modules[i].data.position;
+            currentModuleData[i]["path"] = modules[i].data.path;
 		}
 		var configData = {
 			moduleData: currentModuleData,
@@ -213,5 +226,5 @@ Module.register("MMM-Remote-Control", {
 			settingsVersion: this.settingsVersion
 		};
 		this.sendSocketNotification("CURRENT_STATUS", configData);
-	},
+	}
 });
